@@ -222,7 +222,8 @@ class World:
                 "hunger": agent.hunger,
                 "action": agent.prev_action or "",
                 "reward": agent.reward_history[-1] if agent.reward_history else 0,
-                "alive": agent.alive
+                "alive": agent.alive,
+                "q_table": agent.get_q_table_snapshot()
             })
 
         # Собираем данные хищников

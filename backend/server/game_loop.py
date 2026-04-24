@@ -1,5 +1,7 @@
+import random
 import math
 from core.world import World
+from core.agent import Creature
 
 
 class GameLoop:
@@ -10,16 +12,54 @@ class GameLoop:
         self.running = False
         self.metrics = {"agents": []}
         self._previous_state = None
+        self.generation = 1
+        self.event_log = []
+        # Словарь для отслеживания поколений агентов: agent_id -> generation
+        self._agent_generations = {}
+        # Словарь для отслеживания шагов выживания: agent_id -> steps_alive
+        self._agent_steps_alive = {}
 
     def start(self):
         """Запуск игрового цикла."""
         self.running = True
         # Инициализируем мир при старте
         self.world._spawn_initial()
+        # Назначаем поколение начальному агенту
+        for agent in self.world.agents:
+            self._agent_generations[agent.id] = self.generation
+            self._agent_steps_alive[agent.id] = 0
+            self.event_log.append(
+                f"Шаг {self.world.step_count}: агент поколения {self.generation} появился"
+            )
 
     def stop(self):
         """Остановка игрового цикла."""
         self.running = False
+
+    def _get_random_empty_position(self) -> tuple:
+        """Возвращает случайную пустую клетку на сетке."""
+        empty_cells = []
+        for row in self.world.grid:
+            for cell in row:
+                if cell.type == "empty":
+                    # Проверяем, что на клетке нет агента или хищника
+                    occupied = False
+                    for agent in self.world.agents:
+                        if agent.alive and agent.x == cell.x and agent.y == cell.y:
+                            occupied = True
+                            break
+                    for predator in self.world.predators:
+                        if predator.x == cell.x and predator.y == cell.y:
+                            occupied = True
+                            break
+                    if not occupied:
+                        empty_cells.append((cell.x, cell.y))
+
+        if empty_cells:
+            return random.choice(empty_cells)
+        # Если нет пустых клеток, возвращаем случайную (запасной вариант)
+        return (random.randint(0, self.world.width - 1),
+                random.randint(0, self.world.height - 1))
 
     def tick(self) -> dict:
         """
@@ -28,8 +68,9 @@ class GameLoop:
         2. Для каждого живого агента: получить состояние и выбрать действие
         3. Выполнить шаг мира
         4. Обновить Q-таблицы агентов
-        5. Вычислить метрики
-        Возвращает полное состояние мира с метриками.
+        5. Обработать смерть и наследование
+        6. Вычислить метрики
+        Возвращает полное состояние мира с метриками, логом и поколением.
         """
         # Сохраняем предыдущее состояние для дельты
         self._previous_state = self.world.get_state()
@@ -48,6 +89,12 @@ class GameLoop:
                 action = agent.act(state)
                 actions[agent.id] = action
 
+                # Увеличиваем счётчик шагов выживания
+                if agent.id in self._agent_steps_alive:
+                    self._agent_steps_alive[agent.id] += 1
+                else:
+                    self._agent_steps_alive[agent.id] = 1
+
         # Выполняем шаг мира
         result = self.world.step(actions)
 
@@ -62,15 +109,77 @@ class GameLoop:
                 if state is not None and action is not None:
                     agent.update_q(state, action, reward, next_state)
 
+        # Обрабатываем смерть агентов и наследование
+        for i, agent in enumerate(self.world.agents):
+            if not agent.alive:
+                # Получаем поколение умершего агента
+                old_gen = self._agent_generations.get(agent.id, self.generation)
+                steps_alive = self._agent_steps_alive.get(agent.id, 0)
+
+                # Увеличиваем счётчик поколений
+                self.generation += 1
+                new_gen = self.generation
+
+                # Создаём нового агента с наследованием Q-таблицы
+                new_agent = Creature(agent_id=agent.id, x=0, y=0)
+                new_agent.inherit_q(
+                    agent.q_table,
+                    factor=self.config["inheritance_factor"],
+                    sigma=self.config["inheritance_noise_sigma"]
+                )
+
+                # Спавним в случайной пустой клетке
+                new_x, new_y = self._get_random_empty_position()
+                new_agent.x = new_x
+                new_agent.y = new_y
+
+                # Сбрасываем историю нового агента
+                new_agent.reward_history = []
+                new_agent.state_history = []
+                new_agent.action_history = []
+
+                # Заменяем мёртвого агента в списке
+                self.world.agents[i] = new_agent
+
+                # Обновляем отслеживание поколений
+                self._agent_generations[agent.id] = new_gen
+                self._agent_steps_alive[agent.id] = 0
+
+                # Логирование смерти и возрождения
+                self.event_log.append(
+                    f"Шаг {self.world.step_count}: агент умер (поколение {old_gen}), "
+                    f"возрождён как поколение {new_gen}"
+                )
+                self.event_log.append(
+                    f"Шаг {self.world.step_count}: агент поколения {new_gen} появился"
+                )
+
+        # Проверяем выживание кратно 100 шагов для живых агентов
+        for agent in self.world.agents:
+            if agent.alive:
+                agent_id = agent.id
+                steps = self._agent_steps_alive.get(agent_id, 0)
+                agent_gen = self._agent_generations.get(agent_id, self.generation)
+                if steps > 0 and steps % 100 == 0:
+                    self.event_log.append(
+                        f"Шаг {self.world.step_count}: агент поколения {agent_gen} прожил {steps} шагов"
+                    )
+
+        # Обрезаем лог до последних 50 записей
+        if len(self.event_log) > 50:
+            self.event_log = self.event_log[-50:]
+
         # Увеличиваем счётчик шагов мира
         self.world.step_count += 1
 
         # Вычисляем метрики
         self.metrics = self._compute_metrics()
 
-        # Возвращаем полное состояние с метриками
+        # Возвращаем полное состояние с метриками, логом и поколением
         state = self.world.get_state()
         state["metrics"] = self.metrics
+        state["event_log"] = self.event_log
+        state["generation"] = self.generation
 
         return state
 
@@ -99,6 +208,15 @@ class GameLoop:
                     agent.alive = False
         elif cmd == "reset_world":
             self.world.reset()
+            # Сбрасываем счётчики при ресете мира
+            self.generation = 1
+            self.event_log = []
+            self._agent_generations = {}
+            self._agent_steps_alive = {}
+            # Назначаем поколение новому агенту после ресета
+            for agent in self.world.agents:
+                self._agent_generations[agent.id] = self.generation
+                self._agent_steps_alive[agent.id] = 0
 
     def _compute_metrics(self) -> dict:
         """

@@ -13,6 +13,15 @@
         if (state.metrics) {
             updateCharts(state.metrics);
         }
+        if (state.agents && state.agents[0]) {
+            updateHUD(state.step, state.generation, state.agents[0]);
+            if (state.agents[0].q_table) {
+                updateQTable(state.agents[0].q_table);
+            }
+        }
+        if (state.event_log) {
+            updateEventLog(state.event_log);
+        }
     });
 
     onDelta((step, deltas) => {

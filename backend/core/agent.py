@@ -175,6 +175,17 @@ class Agent:
                 inherited_value = q_value * factor + random.gauss(0, sigma)
                 self.q_table[state][action] = inherited_value
 
+    def get_q_table_snapshot(self) -> dict:
+        """
+        Возвращает снимок Q-таблицы в формате {str(state): {action: float}}.
+        Включает только состояния с непустыми словарями действий.
+        """
+        snapshot = {}
+        for state, actions in self.q_table.items():
+            if actions:  # только непустые
+                snapshot[str(state)] = dict(actions)
+        return snapshot
+
 
 class Creature(Agent):
     """Основной агент с Q-обучением. Наследует всё от Agent."""
