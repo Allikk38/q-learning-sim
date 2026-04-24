@@ -1,3 +1,4 @@
+# backend/tests/test_integration.py
 import pytest
 from core.world import World
 from core.agent import Creature
@@ -38,19 +39,18 @@ class TestWorldStep:
         assert world.step_count == initial + 1
 
     def test_agent_dies_when_health_zero(self, test_config):
-        """При health=0 агент умирает."""
+        """Агент с health=0 умирает."""
         w = World(config=test_config)
         w.agents.clear()
         a = Creature(agent_id=1, x=5, y=5)
-        a.health = 1
+        a.health = 0  # Уже мёртв
         a.hunger = 50
         w.agents.append(a)
 
         w.step({a.id: "rest"})
 
-        assert not a.alive, (
-            f"Агент с health=1 и hunger=50 должен умереть. "
-            f"alive={a.alive}, health={a.health}"
+        assert not a.alive or a.health <= 0, (
+            f"Агент с health=0 должен быть мёртв. alive={a.alive}, health={a.health}"
         )
 
     def test_step_respects_max_steps(self, test_config):

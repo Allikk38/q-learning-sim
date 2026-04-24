@@ -63,6 +63,22 @@ class GameLoop:
         return (random.randint(0, self.world.width - 1),
                 random.randint(0, self.world.height - 1))
 
+    def _apply_brush(self, x: int, y: int, fertility: float, radius: int):
+        """Применяет fertility градиентом от точки (x, y) с затуханием к краям."""
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                cx = x + dx
+                cy = y + dy
+                if 0 <= cx < self.world.width and 0 <= cy < self.world.height:
+                    distance = abs(dx) + abs(dy)
+                    if distance <= radius:
+                        value = fertility * max(0, 1 - distance / radius)
+                        value = round(value, 2)
+                        if value > 0:
+                            self.world.grid[cy][cx].properties["fertility"] = value
+                        else:
+                            self.world.grid[cy][cx].properties.pop("fertility", None)
+
     def _compare_generations(self, old_q: dict, new_q: dict, new_gen: int):
         """
         Сравнивает Q-таблицы старого и нового поколений по ключевым действиям.
@@ -149,6 +165,9 @@ class GameLoop:
         """
         # Сохраняем предыдущее состояние для дельты
         self._previous_state = self.world.get_state()
+
+        # Спавн еды перед действиями агентов
+        self.world.spawn_food()
 
         # Собираем действия от всех живых агентов
         actions = {}
@@ -258,9 +277,6 @@ class GameLoop:
         if len(self.event_log) > 50:
             self.event_log = self.event_log[-50:]
 
-        # Увеличиваем счётчик шагов мира
-        self.world.step_count += 1
-
         # Вычисляем метрики
         self.metrics = self._compute_metrics()
 
@@ -285,7 +301,7 @@ class GameLoop:
     def handle_command(self, command: dict):
         """
         Обработка команд от фронтенда.
-        Поддерживаемые команды: set_speed, kill_agent, reset_world.
+        Поддерживаемые команды: set_speed, kill_agent, reset_world, apply_brush.
         """
         cmd = command.get("command")
         if cmd == "set_speed":
@@ -315,6 +331,12 @@ class GameLoop:
             for agent in self.world.agents:
                 self._agent_generations[agent.id] = self.generation
                 self._agent_steps_alive[agent.id] = 0
+        elif cmd == "apply_brush":
+            x = command.get("x", 0)
+            y = command.get("y", 0)
+            fertility = command.get("fertility", 0.5)
+            radius = command.get("radius", 8)
+            self._apply_brush(x, y, fertility, radius)
 
     def _compute_metrics(self) -> dict:
         """

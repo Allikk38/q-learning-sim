@@ -13,7 +13,12 @@ class Cell:
         return self.properties.get(key, default)
 
     def to_dict(self) -> dict:
-        return {"x": self.x, "y": self.y, "type": self.type}
+        return {
+            "x": self.x,
+            "y": self.y,
+            "type": self.type,
+            "fertility": self.properties.get("fertility", 0.0)
+        }
 
 
 class World:
@@ -39,22 +44,10 @@ class World:
         return random.choice(free_cells)
 
     def _spawn_initial(self):
-        """Размещает начальные сущности: еду, яд, хищника и агента."""
+        """Размещает начальные сущности: только 1 агента и 1 хищника. Еда и яд НЕ спавнятся."""
         occupied = set()
 
-        # 5 клеток еды
-        for _ in range(5):
-            x, y = self._get_random_empty_cell(occupied)
-            self.grid[y][x].type = "food"
-            self.food_positions.add((x, y))
-            occupied.add((x, y))
-
-        # 2 клетки яда
-        for _ in range(2):
-            x, y = self._get_random_empty_cell(occupied)
-            self.grid[y][x].type = "poison"
-            self.poison_positions.add((x, y))
-            occupied.add((x, y))
+        # Все клетки имеют fertility = 0.0 (уже по умолчанию)
 
         # 1 хищник
         x, y = self._get_random_empty_cell(occupied)
@@ -67,6 +60,19 @@ class World:
         agent = Creature(agent_id=0, x=x, y=y)
         self.agents.append(agent)
         occupied.add((x, y))
+
+    def spawn_food(self):
+        """
+        Спавнит еду на пустых клетках с шансом fertility * 0.2.
+        Вызывается из game_loop между тиками.
+        """
+        for row in self.grid:
+            for cell in row:
+                if cell.type == "empty":
+                    fertility = cell.get_property("fertility", 0.0)
+                    if fertility > 0 and random.random() < fertility * 0.2:
+                        cell.type = "food"
+                        self.food_positions.add((cell.x, cell.y))
 
     def _manhattan_distance(self, x1: int, y1: int, x2: int, y2: int) -> int:
         """Манхэттенское расстояние между двумя точками."""
@@ -147,12 +153,12 @@ class World:
             elif action == "eat":
                 cell = self.grid[agent.y][agent.x]
                 if cell.type == "food":
-                    # Съедаем еду (баланс: больше восстановления)
+                    # Съедаем еду
                     cell.type = "empty"
                     self.food_positions.discard((agent.x, agent.y))
                     agent.health = min(100, agent.health + 20)
                     agent.energy = min(100, agent.energy + 20)
-                    agent.hunger = max(0, agent.hunger - 10)  # еда снижает голод
+                    agent.hunger = max(0, agent.hunger - 10)
                     reward = 1.0
                 elif cell.type == "poison":
                     # Отравление ядом (яд остаётся на клетке)
@@ -178,11 +184,11 @@ class World:
                         break
                 reward = -0.05
 
-            # Общие для всех агентов: энергия -1, голод +1
+            # Общие для всех агентов: энергия -1, голод +0.5
             agent.energy = max(0, agent.energy - 1)
-            agent.hunger += 1
+            agent.hunger += 0.5
 
-            # Если голод >= 70, здоровье -2 за шаг (повышен порог)
+            # Если голод >= 70, здоровье -2 за шаг
             if agent.hunger >= 70:
                 agent.health -= 2
 
@@ -200,7 +206,7 @@ class World:
             else:
                 next_states[agent.id] = None
 
-        # БАГ №1: инкрементируем счётчик шагов
+        # Инкрементируем счётчик шагов
         self.step_count += 1
 
         return {"rewards": rewards, "next_states": next_states}
@@ -302,12 +308,13 @@ class World:
         return self.grid[y][x]
 
     def reset(self):
-        """Сброс мира: очистка и повторный спавн."""
+        """Сброс мира: очистка и повторный спавн. Еда и яд НЕ спавнятся."""
         # Очищаем сетку
         for row in self.grid:
             for cell in row:
                 cell.type = "empty"
                 cell.properties = {}
+                # fertility сбрасывается в 0.0 (уже пустой словарь, get_property вернёт 0.0)
 
         # Очищаем все списки и множества
         self.agents.clear()
@@ -319,5 +326,5 @@ class World:
         self.step_count = 0
         self._previous_state = None
 
-        # Запускаем начальный спавн
+        # Запускаем начальный спавн (только агент и хищник)
         self._spawn_initial()
