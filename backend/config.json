@@ -1,0 +1,9 @@
+{
+  "grid_width": 10,
+  "grid_height": 10,
+  "max_steps_per_episode": 1000,
+  "random_event_probability": 0.0,
+  "random_events": [],
+  "inheritance_factor": 0.3,
+  "inheritance_noise_sigma": 0.05
+}

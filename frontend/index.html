@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-Learning Sim</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="game-panel">
+            <canvas id="game-canvas"></canvas>
+        </div>
+        <div id="side-panel">
+            <div id="charts-container">
+                <canvas id="chart-reward"></canvas>
+                <canvas id="chart-entropy"></canvas>
+                <canvas id="chart-coverage"></canvas>
+            </div>
+            <div id="controls">
+                <button id="btn-play">▶ Старт</button>
+                <button id="btn-pause">⏸ Пауза</button>
+                <button id="btn-speed-1x">1x</button>
+                <button id="btn-speed-2x">2x</button>
+                <button id="btn-speed-5x">5x</button>
+                <button id="btn-kill">💀 Убить агента</button>
+                <button id="btn-reset">🔄 Сброс</button>
+            </div>
+        </div>
+    </div>
+    <script src="js/connection.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
