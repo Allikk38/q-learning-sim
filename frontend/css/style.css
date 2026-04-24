@@ -52,6 +52,46 @@ body {
     border-radius: 4px;
 }
 
+#qtable-container {
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+#qtable-container h4 {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+    color: #aaa;
+}
+
+#qtable-content {
+    color: #ccc;
+    font-size: 12px;
+}
+
+#event-log {
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 12px;
+}
+
+#event-log h4 {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+    color: #aaa;
+}
+
+#event-log-content {
+    color: #ccc;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
 #controls {
     display: flex;
     flex-wrap: wrap;
@@ -71,31 +111,7 @@ body {
 #controls button:hover {
     background: #1a508b;
 }
-/* === Лог событий (F10) === */
-#event-log {
-    background: #0f0f1a;
-    border: 1px solid #333;
-    border-radius: 4px;
-    padding: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    font-size: 12px;
-    margin-top: 8px;
-}
 
-#event-log h4 {
-    margin: 0 0 4px 0;
-    font-size: 13px;
-    color: #aaa;
-}
-
-#event-log-content {
-    color: #ccc;
-    line-height: 1.5;
-    word-break: break-word;
-}
-
-/* Стилизация скроллбара */
 #event-log::-webkit-scrollbar {
     width: 4px;
 }
@@ -108,47 +124,11 @@ body {
     background: #333;
     border-radius: 2px;
 }
-/* === Счётчик поколений (F8) === */
-#generation-label {
-    position: absolute;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 14px;
-    color: #f1c40f;
-    font-weight: bold;
-}
 
-/* === Q-таблица (F9) === */
-#qtable-container {
-    background: #0f0f1a;
-    border: 1px solid #333;
-    border-radius: 4px;
-    padding: 8px;
-    max-height: 250px;
-    overflow-y: auto;
-}
-
-#qtable-container h4 {
-    margin: 0 0 4px 0;
-    font-size: 13px;
-    color: #aaa;
-}
-
-#qtable-content {
-    color: #ccc;
-    font-size: 12px;
-}
-
-#qtable-container::-webkit-scrollbar {
-    width: 4px;
-}
-
-#qtable-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#qtable-container::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 2px;
+/* === Q-радар (I3) === */
+#radar-canvas {
+    width: 200px;
+    height: 200px;
+    display: block;
+    margin: 0 auto;
 }

@@ -18,6 +18,8 @@ class GameLoop:
         self._agent_generations = {}
         # Словарь для отслеживания шагов выживания: agent_id -> steps_alive
         self._agent_steps_alive = {}
+        # Q-таблица предыдущего поколения для сравнения
+        self.previous_generation_q = None
 
     def start(self):
         """Запуск игрового цикла."""
@@ -60,6 +62,79 @@ class GameLoop:
         # Если нет пустых клеток, возвращаем случайную (запасной вариант)
         return (random.randint(0, self.world.width - 1),
                 random.randint(0, self.world.height - 1))
+
+    def _compare_generations(self, old_q: dict, new_q: dict, new_gen: int):
+        """
+        Сравнивает Q-таблицы старого и нового поколений по ключевым действиям.
+        Возвращает строку для лога или None, если изменений нет.
+        """
+        key_actions = ["eat", "move_n", "move_s", "move_w", "move_e"]
+        
+        # Собираем средние Q-значения для ключевых действий по всем состояниям
+        old_avg = {}
+        new_avg = {}
+        
+        for action in key_actions:
+            old_values = []
+            new_values = []
+            
+            # Собираем все Q-значения для действия из старой таблицы
+            for state, actions in old_q.items():
+                if action in actions:
+                    old_values.append(actions[action])
+            
+            # Собираем все Q-значения для действия из новой таблицы
+            for state, actions in new_q.items():
+                if action in actions:
+                    new_values.append(actions[action])
+            
+            # Вычисляем средние
+            if old_values:
+                old_avg[action] = sum(old_values) / len(old_values)
+            if new_values:
+                new_avg[action] = sum(new_values) / len(new_values)
+        
+        # Ищем действия с наибольшим изменением
+        max_change = 0.0
+        changed_action = None
+        
+        for action in key_actions:
+            if action in old_avg and action in new_avg:
+                change = abs(new_avg[action] - old_avg[action])
+                if change > max_change:
+                    max_change = change
+                    changed_action = action
+        
+        # Проверяем порог значимости
+        if max_change <= 0.3:
+            return f"Поколение {new_gen}: без значительных изменений"
+        
+        # Формируем осмысленное сообщение
+        old_val = old_avg.get(changed_action, 0)
+        new_val = new_avg.get(changed_action, 0)
+        diff = new_val - old_val
+        
+        # Подбираем описание в зависимости от действия и направления изменения
+        action_names = {
+            "eat": "отношение к еде/яду",
+            "move_n": "навык ходьбы на север",
+            "move_s": "навык ходьбы на юг",
+            "move_w": "навык ходьбы на запад",
+            "move_e": "навык ходьбы на восток"
+        }
+        
+        action_desc = action_names.get(changed_action, f"Q_{changed_action}")
+        
+        if changed_action == "eat":
+            if diff < 0:
+                desc = "страх перед ядом усилился"
+            else:
+                desc = "тяга к еде возросла"
+        else:
+            direction = "научился ходить" if diff > 0.3 else "стал реже ходить"
+            desc = f"{direction} ({action_desc})"
+        
+        return f"Поколение {new_gen}: {desc} (Q_{changed_action}: {old_val:.1f} → {new_val:.1f})"
 
     def tick(self) -> dict:
         """
@@ -116,6 +191,9 @@ class GameLoop:
                 old_gen = self._agent_generations.get(agent.id, self.generation)
                 steps_alive = self._agent_steps_alive.get(agent.id, 0)
 
+                # Сохраняем Q-таблицу умершего агента для сравнения
+                dead_q_table = dict(agent.q_table)
+
                 # Увеличиваем счётчик поколений
                 self.generation += 1
                 new_gen = self.generation
@@ -150,6 +228,17 @@ class GameLoop:
                     f"Шаг {self.world.step_count}: агент умер (поколение {old_gen}), "
                     f"возрождён как поколение {new_gen}"
                 )
+
+                # Сравнение поколений
+                if self.previous_generation_q is not None:
+                    comparison = self._compare_generations(
+                        self.previous_generation_q, dead_q_table, old_gen
+                    )
+                    self.event_log.append(comparison)
+                
+                # Сохраняем Q-таблицу умершего как предыдущую для следующего сравнения
+                self.previous_generation_q = dead_q_table
+
                 self.event_log.append(
                     f"Шаг {self.world.step_count}: агент поколения {new_gen} появился"
                 )
@@ -204,8 +293,16 @@ class GameLoop:
         elif cmd == "kill_agent":
             agent_id = command.get("id", 0)
             for agent in self.world.agents:
-                if agent.id == agent_id:
+                if agent.id == agent_id and agent.alive:
                     agent.alive = False
+                    old_gen = self._agent_generations.get(agent.id, self.generation)
+                    self.event_log.append(
+                        f"Шаг {self.world.step_count}: агент умер (поколение {old_gen}), "
+                        f"убит пользователем"
+                    )
+                    # Обрезаем лог до последних 50 записей
+                    if len(self.event_log) > 50:
+                        self.event_log = self.event_log[-50:]
         elif cmd == "reset_world":
             self.world.reset()
             # Сбрасываем счётчики при ресете мира
@@ -213,6 +310,7 @@ class GameLoop:
             self.event_log = []
             self._agent_generations = {}
             self._agent_steps_alive = {}
+            self.previous_generation_q = None
             # Назначаем поколение новому агенту после ресета
             for agent in self.world.agents:
                 self._agent_generations[agent.id] = self.generation

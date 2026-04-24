@@ -14,26 +14,26 @@ async def startup():
     global game_loop
     config = load_config()
     game_loop = GameLoop(config)
-    game_loop.world._spawn_initial()
-    game_loop.start()
+    game_loop.start()  # start() сам вызывает _spawn_initial()
     asyncio.create_task(game_tick())
 
 
 async def game_tick():
     while True:
         if game_loop and game_loop.running and game_loop.speed > 0:
+            state = None
             for _ in range(game_loop.speed):
-                game_loop.tick()
-            state = game_loop.world.get_state()
-            message = {
-                "type": "full_state",
-                **state
-            }
-            for ws in connected_clients:
-                try:
-                    await ws.send_text(json.dumps(message))
-                except Exception:
-                    pass
+                state = game_loop.tick()
+            if state:
+                message = {
+                    "type": "full_state",
+                    **state
+                }
+                for ws in connected_clients:
+                    try:
+                        await ws.send_text(json.dumps(message))
+                    except Exception:
+                        pass
         await asyncio.sleep(0.5)
 
 

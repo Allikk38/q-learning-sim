@@ -147,11 +147,12 @@ class World:
             elif action == "eat":
                 cell = self.grid[agent.y][agent.x]
                 if cell.type == "food":
-                    # Съедаем еду
+                    # Съедаем еду (баланс: больше восстановления)
                     cell.type = "empty"
                     self.food_positions.discard((agent.x, agent.y))
-                    agent.health = min(100, agent.health + 10)
-                    agent.energy = min(100, agent.energy + 15)
+                    agent.health = min(100, agent.health + 20)
+                    agent.energy = min(100, agent.energy + 20)
+                    agent.hunger = max(0, agent.hunger - 10)  # еда снижает голод
                     reward = 1.0
                 elif cell.type == "poison":
                     # Отравление ядом (яд остаётся на клетке)
@@ -159,11 +160,10 @@ class World:
                     reward = -2.0
 
             elif action == "rest":
-                if agent.hunger == 0:
-                    agent.energy = min(100, agent.energy + 5)
-                    reward = 0.2
-                else:
-                    reward = 0.0
+                # Отдых восстанавливает энергию и снижает голод
+                agent.energy = min(100, agent.energy + 5)
+                agent.hunger = max(0, agent.hunger - 2)
+                reward = 0.2
 
             elif action == "explore":
                 # Случайное смещение на соседнюю клетку
@@ -182,8 +182,8 @@ class World:
             agent.energy = max(0, agent.energy - 1)
             agent.hunger += 1
 
-            # Если голод >= 50, здоровье -2 за шаг
-            if agent.hunger >= 50:
+            # Если голод >= 70, здоровье -2 за шаг (повышен порог)
+            if agent.hunger >= 70:
                 agent.health -= 2
 
             # Проверка смерти
@@ -199,6 +199,9 @@ class World:
                 next_states[agent.id] = agent.get_state(self)
             else:
                 next_states[agent.id] = None
+
+        # БАГ №1: инкрементируем счётчик шагов
+        self.step_count += 1
 
         return {"rewards": rewards, "next_states": next_states}
 
