@@ -29,6 +29,8 @@ function connect(host) {
     ws.onerror = (err) => {
         console.error('WebSocket error', err);
     };
+
+    return ws;
 }
 
 function sendCommand(command) {

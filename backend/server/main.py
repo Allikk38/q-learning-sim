@@ -14,7 +14,7 @@ async def startup():
     global game_loop
     config = load_config()
     game_loop = GameLoop(config)
-    game_loop.start()  # start() сам вызывает _spawn_initial()
+    game_loop.start()
     asyncio.create_task(game_tick())
 
 
@@ -44,6 +44,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
     if game_loop:
         state = game_loop.world.get_state()
+        state["metrics"] = game_loop.metrics
+        state["event_log"] = game_loop.event_log
+        state["generation"] = game_loop.generation
+        state["eco_score"] = game_loop.eco_score
+        state["achievement_messages"] = []
+        state["agent_generations"] = dict(game_loop._agent_generations)
         await websocket.send_text(json.dumps({
             "type": "full_state",
             **state

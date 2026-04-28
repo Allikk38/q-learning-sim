@@ -1,9 +1,10 @@
 {
   "grid_width": 100,
   "grid_height": 75,
-  "max_steps_per_episode": 5000,
+  "max_steps_per_episode": 1000,
   "random_event_probability": 0.0,
   "random_events": [],
   "inheritance_factor": 0.3,
-  "inheritance_noise_sigma": 0.05
+  "inheritance_noise_sigma": 0.05,
+  "food_spawn_interval": 50
 }
